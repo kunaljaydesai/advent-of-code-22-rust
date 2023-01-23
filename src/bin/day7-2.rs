@@ -100,17 +100,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ));
     }
 
+    let total_size = Rc::clone(current_directory.as_ref().unwrap()).dir_size();
     let mut queue = vec![current_directory];
-    let mut total_size = 0;
+    let min_req_dir_size = 30_000_000 - (70_000_000 - total_size);
+    let mut min_dir_size = std::i32::MAX;
     while queue.len() > 0 {
         let el = Rc::clone(queue.pop().unwrap().as_ref().unwrap());
-        if el.dir_size() <= 100000 {
-            total_size += el.dir_size();
+        let dir_size = el.dir_size();
+        if dir_size >= min_req_dir_size && dir_size < min_dir_size {
+            min_dir_size = dir_size;
         }
         for child in el.children.borrow().iter() {
             queue.push(Some(Rc::clone(child)));
         }
     }
-    println!("Total size {}", total_size);
+    println!("Min dir size {}", min_dir_size);
     Ok(())
 }
