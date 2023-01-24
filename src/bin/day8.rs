@@ -1,0 +1,132 @@
+use std::{io::BufRead, ops::Index};
+
+struct Forest {
+    grid: Vec<Vec<u8>>,
+}
+
+impl Forest {
+    pub fn add_tree_row(&mut self, row: &String) {
+        let mut row_vec = vec![];
+        for char in row.chars() {
+            row_vec.push(char as u8 - '0' as u8);
+        }
+        self.grid.push(row_vec);
+    }
+
+    pub fn is_visible(&self, row: usize, col: usize) -> bool {
+        let on_edge = row == 0
+            || row == self.grid.len() - 1
+            || col == 0
+            || col == self.grid.index(0).len() - 1;
+        if on_edge {
+            return true;
+        }
+        let is_visible_from_above = self.is_visible_from(row, col, -1, 0);
+        if is_visible_from_above {
+            return true;
+        }
+
+        let is_visible_from_left = self.is_visible_from(row, col, 0, -1);
+        if is_visible_from_left {
+            return true;
+        }
+
+        let is_visible_from_right = self.is_visible_from(row, col, 0, 1);
+        if is_visible_from_right {
+            return true;
+        }
+
+        let is_visible_from_bottom = self.is_visible_from(row, col, 1, 0);
+        if is_visible_from_bottom {
+            return true;
+        }
+        return false;
+    }
+
+    pub fn is_visible_from(&self, mut row: usize, mut col: usize, dx: isize, dy: isize) -> bool {
+        let num_rows = self.grid.len();
+        let num_cols = self.grid.index(0).len();
+        let tree_height = *self.grid.index(row).index(col);
+        if dx.is_negative() {
+            if let Some(val) = row.checked_sub(dx.abs() as usize) {
+                row = val;
+            } else {
+                return true;
+            }
+        } else {
+            if let Some(val) = row.checked_add(dx.abs() as usize) {
+                row = val;
+            } else {
+                return true;
+            }
+        }
+
+        if dy.is_negative() {
+            if let Some(val) = col.checked_sub(dy.abs() as usize) {
+                col = val;
+            } else {
+                return true;
+            }
+        } else {
+            if let Some(val) = col.checked_add(dy.abs() as usize) {
+                col = val;
+            } else {
+                return true;
+            }
+        }
+
+        while row < num_rows && col < num_cols {
+            if tree_height <= *self.grid.index(row).index(col) {
+                return false;
+            }
+
+            if dx.is_negative() {
+                if let Some(val) = row.checked_sub(dx.abs() as usize) {
+                    row = val;
+                } else {
+                    return true;
+                }
+            } else {
+                if let Some(val) = row.checked_add(dx.abs() as usize) {
+                    row = val;
+                } else {
+                    return true;
+                }
+            }
+
+            if dy.is_negative() {
+                if let Some(val) = col.checked_sub(dy.abs() as usize) {
+                    col = val;
+                } else {
+                    return true;
+                }
+            } else {
+                if let Some(val) = col.checked_add(dy.abs() as usize) {
+                    col = val;
+                } else {
+                    return true;
+                }
+            }
+        }
+        return true;
+    }
+}
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let path = std::path::Path::new("day8.txt");
+    let file = std::fs::File::open(path)?;
+    let reader = std::io::BufReader::new(file);
+    let mut forest = Forest { grid: vec![] };
+    for line in reader.lines() {
+        forest.add_tree_row(&line.unwrap());
+    }
+    let mut num_visible = 0;
+    for row in 0..forest.grid.len() {
+        for col in 0..forest.grid.index(0).len() {
+            if forest.is_visible(row, col) {
+                num_visible += 1;
+            }
+        }
+    }
+    println!("num visible: {}", num_visible);
+    Ok(())
+}
