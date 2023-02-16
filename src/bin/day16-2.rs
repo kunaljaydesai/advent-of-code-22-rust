@@ -1,7 +1,6 @@
 use std::{
     collections::{BinaryHeap, HashMap, HashSet},
     io::BufRead,
-    ops::Index,
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -62,15 +61,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let mut queue = BinaryHeap::new();
-    let mut max_flow = 0;
-    queue.push((30, 0, "AA", Vec::<String>::new()));
+    let mut flow_map = HashMap::<Vec<String>, i32>::new();
+    queue.push((26, 0, "AA", Vec::<String>::new()));
     while let Some(el) = queue.pop() {
         let minutes_remaining = el.0;
         if minutes_remaining <= 0 {
             break;
         }
         let flow_rate = el.1;
-        max_flow = max_flow.max(flow_rate);
         let valve = el.2;
         let visited = el.3;
         for edge in weighted_graph.get(valve).unwrap() {
@@ -87,12 +85,47 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let distance = *edge.1;
             let flow_activation_cost = 1;
             let new_minutes_remaining = minutes_remaining - flow_activation_cost - distance;
+            if new_minutes_remaining < 0 {
+                if !flow_map.contains_key(&visited) {
+                    flow_map.insert(visited.clone(), flow_rate);
+                } else {
+                    flow_map.insert(
+                        visited.clone(),
+                        *flow_map.get(&visited).unwrap().max(&flow_rate),
+                    );
+                }
+            }
             let new_flow_rate = flow_rate + (new_minutes_remaining * edge_flow_rate as i32);
             let mut new_visited = visited.clone();
             new_visited.push(edge_name.to_string());
             queue.push((new_minutes_remaining, new_flow_rate, edge_name, new_visited));
         }
     }
-    println!("Max flow {}", max_flow);
+
+    let mut max_flow = 0;
+    let total = flow_map.len();
+    let mut keys: Vec<(i32, Vec<String>)> = vec![];
+    for pair in flow_map {
+        keys.push((pair.1, pair.0));
+    }
+    keys.sort();
+    keys.reverse();
+    for first_idx in 0..total {
+        let first = &keys[first_idx];
+        let first_score = first.0;
+        let first_path: HashSet<String> = HashSet::from_iter(first.1.clone());
+        for second_idx in first_idx + 1..total {
+            let second = &keys[second_idx];
+            let second_score = second.0;
+            let second_path = HashSet::from_iter(second.1.clone());
+            if first_score + second_score < max_flow {
+                break;
+            }
+            if first_path.is_disjoint(&second_path) {
+                max_flow = max_flow.max(first_score + second_score);
+            }
+        }
+    }
+    println!("max flow {}", max_flow);
     Ok(())
 }

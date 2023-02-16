@@ -64,10 +64,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         let steps = get_num(&line[2..]);
         for _ in 0..steps {
-            // println!(
-            //     "head ({}, {}), tail ({}, {})",
-            //     head_loc.0, head_loc.1, tail_loc.0, tail_loc.1
-            // );
             head_loc = update_pos(head_loc, dx, dy);
             let touching = is_touching(head_loc, tail_loc);
             let is_same_row_or_column = head_loc.0 == tail_loc.0 || head_loc.1 == tail_loc.1;
