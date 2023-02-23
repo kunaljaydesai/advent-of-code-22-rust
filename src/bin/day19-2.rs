@@ -1,4 +1,3 @@
-use core::num;
 use regex::Regex;
 use std::{collections::VecDeque, io::BufRead};
 
@@ -30,6 +29,7 @@ fn calculate_blueprint(
     clay_cost: i32,
     obsidian_cost: (i32, i32),
     geode_cost: (i32, i32),
+    minute_limits: (i32, i32, i32, i32),
 ) -> i32 {
     let initial_state = State {
         num_ore_robot: 1,
@@ -40,7 +40,7 @@ fn calculate_blueprint(
         clay: 0,
         obisidan: 0,
         geode: 0,
-        minutes_left: 24,
+        minutes_left: 32,
     };
 
     let mut stack = VecDeque::new();
@@ -56,6 +56,7 @@ fn calculate_blueprint(
                 || state.num_ore_robot < clay_cost
                 || state.num_ore_robot < obsidian_cost.0
                 || state.num_ore_robot < geode_cost.0)
+            && state.minutes_left >= minute_limits.0
         {
             let mut new_state = state;
             new_state.ore -= ore_cost;
@@ -64,7 +65,16 @@ fn calculate_blueprint(
             stack.push_front(new_state);
         }
 
-        if state.ore >= clay_cost && state.num_clay_robot < obsidian_cost.1 {
+        let no_more_ore_bots = state.num_ore_robot
+            >= ore_cost
+                .max(clay_cost)
+                .max(obsidian_cost.0)
+                .max(geode_cost.0);
+        if state.ore >= clay_cost
+            && state.num_clay_robot < obsidian_cost.1
+            && state.minutes_left >= minute_limits.1
+            && no_more_ore_bots
+        {
             let mut new_state = state;
             new_state.generate_resources();
             new_state.ore -= clay_cost;
@@ -75,6 +85,8 @@ fn calculate_blueprint(
         if state.clay >= obsidian_cost.1
             && state.ore >= obsidian_cost.0
             && state.num_obsidian_robot < geode_cost.1
+            && state.minutes_left >= minute_limits.2
+            && no_more_ore_bots
         {
             let mut new_state = state;
             new_state.generate_resources();
@@ -84,7 +96,11 @@ fn calculate_blueprint(
             stack.push_front(new_state);
         }
 
-        if state.ore >= geode_cost.0 && state.obisidan >= geode_cost.1 {
+        if state.ore >= geode_cost.0
+            && state.obisidan >= geode_cost.1
+            && state.minutes_left >= minute_limits.3
+            && no_more_ore_bots
+        {
             let mut new_state = state;
             new_state.generate_resources();
             new_state.ore -= geode_cost.0;
@@ -118,7 +134,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let re = Regex::new(
         r"Blueprint (\d+): Each ore robot costs (\d+) ore. Each clay robot costs (\d+) ore. Each obsidian robot costs (\d+) ore and (\d+) clay. Each geode robot costs (\d+) ore and (\d+) obsidian.",
     ).unwrap();
-    let mut quality_sum = 0;
+    let mut quality_sum = 1;
     for line_result in lines {
         let line = line_result.ok().unwrap();
         let cap = re.captures_iter(&line).next().unwrap();
@@ -129,37 +145,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let obsidian_robot_cost_clay = cap[5].parse::<i32>().ok().unwrap();
         let geode_robot_cost_ore = cap[6].parse::<i32>().ok().unwrap();
         let geode_robot_cost_obsidian = cap[7].parse::<i32>().ok().unwrap();
-        // println!(
-        //     "Blueprint {}: ore: {}, clay: {}, obsidian: {}, {}, geode: {}, {}",
-        //     blueprint_id,
-        //     ore_robot_cost_ore,
-        //     clay_robot_cost_ore,
-        //     obsidian_robot_cost_ore,
-        //     obsidian_robot_cost_clay,
-        //     geode_robot_cost_ore,
-        //     geode_robot_cost_obsidian
-        // );
+
         let num_geode = calculate_blueprint(
             ore_robot_cost_ore,
             clay_robot_cost_ore,
             (obsidian_robot_cost_ore, obsidian_robot_cost_clay),
             (geode_robot_cost_ore, geode_robot_cost_obsidian),
+            (20, 10, 3, 0),
         );
-        quality_sum += blueprint_id * num_geode;
+        quality_sum *= num_geode;
         println!(
             "Blueprint {} score {}, curr quality sum {}",
             blueprint_id, num_geode, quality_sum
         );
+        if blueprint_id == 3 {
+            break;
+        }
     }
-    println!("Sum of Quality: {}", quality_sum);
-    // re.captures_iter()
-    // println!(
-    //     "Blue print 1 quality: {}",
-    //     calculate_blueprint(4, 2, (3, 14), (2, 7))
-    // );
-    // println!(
-    //     "Blue print 2 quality: {}",
-    //     calculate_blueprint(2, 3, (3, 8), (3, 12))
-    // );
+    println!("Product of max geodes: {}", quality_sum);
     Ok(())
 }
