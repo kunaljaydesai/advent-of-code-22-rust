@@ -1,4 +1,4 @@
-use std::cmp::Ordering;
+use std::cmp::{min, Ordering};
 use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::{io::BufRead, ops::Add};
 
@@ -9,6 +9,7 @@ struct State {
     pos: Position,
     grid: Vec<Vec<Vec<char>>>,
     minutes_elapsed: usize,
+    goal: Position,
 }
 
 impl State {
@@ -16,8 +17,8 @@ impl State {
         return self
             .pos
             .0
-            .abs_diff(self.grid.len() - 1)
-            .add(self.pos.1.abs_diff(self.grid[0].len() - 2));
+            .abs_diff(self.goal.0)
+            .add(self.pos.1.abs_diff(self.goal.1));
     }
 
     fn height(&self) -> usize {
@@ -169,14 +170,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         pos: start,
         grid: grid.clone(),
         minutes_elapsed: 0,
+        goal: (grid.len() - 1, grid[0].len() - 2),
     });
 
     let end = (grid.len() - 1, grid[0].len() - 2);
     let mut min_time_to_goal = usize::MAX;
     let mut visited = HashSet::new();
+    let mut next_start_state = None;
     while let Some(mut s) = pq.pop() {
         if s.pos == end {
-            min_time_to_goal = min_time_to_goal.min(s.minutes_elapsed);
+            if s.minutes_elapsed < min_time_to_goal {
+                next_start_state = Some(s.clone());
+                min_time_to_goal = s.minutes_elapsed;
+            }
             continue;
         }
         if s.minutes_elapsed >= min_time_to_goal - 1 {
@@ -203,6 +209,91 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
     }
-    println!("min time to goal {}", min_time_to_goal);
+    let mut curr_time = min_time_to_goal;
+    println!("got curr time {}", curr_time);
+    let mut next_state = next_start_state.unwrap();
+    let mut next_start_state = None;
+    next_state.goal = (0, 1);
+    next_state.minutes_elapsed = 0;
+    pq.push(next_state);
+    min_time_to_goal = usize::MAX;
+    visited.clear();
+    grid_cache.clear();
+    while let Some(mut s) = pq.pop() {
+        if s.pos == start {
+            if s.minutes_elapsed < min_time_to_goal {
+                next_start_state = Some(s.clone());
+                min_time_to_goal = s.minutes_elapsed;
+            }
+            continue;
+        }
+        if s.minutes_elapsed >= min_time_to_goal - 1 {
+            continue;
+        }
+
+        if s.distance_from_goal() >= min_time_to_goal - s.minutes_elapsed {
+            continue;
+        }
+
+        if let Some(updated_grid) = grid_cache.get(&s.minutes_elapsed) {
+            s.grid = updated_grid.clone();
+        } else {
+            s.simulate_blizzard();
+            grid_cache.insert(s.minutes_elapsed, s.grid.clone());
+        }
+        s.minutes_elapsed += 1;
+        for pos in s.get_valid_positions() {
+            let mut new_state = s.clone();
+            new_state.pos = pos;
+            if !visited.contains(&(s.minutes_elapsed, pos)) {
+                visited.insert((s.minutes_elapsed, pos));
+                pq.push(new_state);
+            }
+        }
+    }
+    curr_time += min_time_to_goal;
+
+    println!("got curr time {}", curr_time);
+    next_state = next_start_state.unwrap();
+    next_state.goal = (grid.len() - 1, grid[0].len() - 2);
+    next_state.minutes_elapsed = 0;
+    pq.push(next_state);
+    min_time_to_goal = usize::MAX;
+    visited.clear();
+    grid_cache.clear();
+    while let Some(mut s) = pq.pop() {
+        if s.pos == end {
+            if s.minutes_elapsed < min_time_to_goal {
+                next_start_state = Some(s.clone());
+                min_time_to_goal = s.minutes_elapsed;
+            }
+            continue;
+        }
+        if s.minutes_elapsed >= min_time_to_goal - 1 {
+            continue;
+        }
+
+        if s.distance_from_goal() >= min_time_to_goal - s.minutes_elapsed {
+            continue;
+        }
+
+        if let Some(updated_grid) = grid_cache.get(&s.minutes_elapsed) {
+            s.grid = updated_grid.clone();
+        } else {
+            s.simulate_blizzard();
+            grid_cache.insert(s.minutes_elapsed, s.grid.clone());
+        }
+        s.minutes_elapsed += 1;
+        for pos in s.get_valid_positions() {
+            let mut new_state = s.clone();
+            new_state.pos = pos;
+            if !visited.contains(&(s.minutes_elapsed, pos)) {
+                visited.insert((s.minutes_elapsed, pos));
+                pq.push(new_state);
+            }
+        }
+    }
+    curr_time += min_time_to_goal;
+    println!("min time to goal {}", curr_time);
     Ok(())
 }
